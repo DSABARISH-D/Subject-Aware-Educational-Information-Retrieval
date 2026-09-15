@@ -30,7 +30,7 @@ logger = get_logger(__name__)
 
 @router.post("/", response_model=DocumentSchema)
 async def upload_document(
-    subject_id: uuid.UUID,
+    subject_id: str,
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
 ):
@@ -101,7 +101,7 @@ async def upload_document(
 
 @router.get("/", response_model=List[DocumentSchema])
 def get_documents(
-    subject_id: uuid.UUID,
+    subject_id: str,
     db: Session = Depends(get_db),
 ):
     """
@@ -128,8 +128,8 @@ def get_documents(
 
 @router.delete("/{document_id}")
 def delete_document(
-    subject_id: uuid.UUID,
-    document_id: uuid.UUID,
+    subject_id: str,
+    document_id: str,
     db: Session = Depends(get_db),
 ):
     """
@@ -177,7 +177,7 @@ def delete_document(
 
 @router.post("/upload", status_code=202)
 async def upload_multiple_documents(
-    subject_id: uuid.UUID,
+    subject_id: str,
     files: List[UploadFile] = File(...),
     background_tasks: BackgroundTasks = None,
     db: Session = Depends(get_db),
