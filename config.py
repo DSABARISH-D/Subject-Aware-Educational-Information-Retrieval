@@ -40,6 +40,9 @@ class Settings(BaseSettings):
     testing: bool = False
     bypass_auth: bool = False
     
+    # Frontend origin for CORS
+    frontend_origin: str = "*"
+    
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

@@ -2,8 +2,8 @@ mylog.log
 
 # Environment variables
 .env
-.env.local
-.env.production
+.env.*
+!.env.example
 
 # Python
 __pycache__/

@@ -65,7 +65,7 @@ async def log_requests(request: Request, call_next):
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[settings.frontend_origin],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -276,9 +276,11 @@ def get_home_page_html(subjects: list = []):
 
 if __name__ == "__main__":
     import uvicorn
+    import os
+    port = int(os.environ.get("PORT", settings.app_port))
     uvicorn.run(
         "main:app",
-        host=settings.app_host,
-        port=settings.app_port,
+        host="0.0.0.0",
+        port=port,
         reload=settings.app_debug
     )
