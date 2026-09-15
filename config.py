@@ -31,9 +31,9 @@ class Settings(BaseSettings):
     
     # Gemini RAG configuration
     gemini_api_key: Optional[str] = None
-    gemini_embedding_model: str = "gemini-embedding-001"
-    gemini_chat_model: str = "gemini-2.5-flash"
-    embedding_dimension: int = 1536
+    gemini_embedding_model: str = "models/embedding-001"
+    gemini_chat_model: str = "gemini-1.5-flash"
+    embedding_dimension: int = 768
     allow_sqlite_fallback: bool = False
     
     # Testing Configuration
