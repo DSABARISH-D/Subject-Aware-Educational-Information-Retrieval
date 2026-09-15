@@ -36,10 +36,12 @@ def run(root: Path) -> dict:
                     result = ingest_file(db, file_path.read_bytes(), file_path.name, subject.id, "site", logger)
                     if result is None:
                         summary["skipped"] += 1
+                        logger.info("[SKIP] %s", relative_name)
                         logger.info("Status: SKIPPED (already ingested)")
                         continue
                     summary["pdfs"] += 1
                     summary["chunks"] += result["inserted"]
+                    logger.info("[%s] %s", result["action"], relative_name)
                     logger.info("Pages: %s", result["pages"])
                     logger.info("Chunks created: %s", result["chunks"])
                     logger.info("Embeddings generated: %s", result["embeddings"])
@@ -63,7 +65,13 @@ def run(root: Path) -> dict:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("root", nargs="?", type=Path, default=Path("study_material"))
+    parser.add_argument(
+        "root",
+        nargs="?",
+        type=Path,
+        default=Path(__file__).resolve().parents[1] / "study_material",
+        help="Internal lecture root; each immediate child directory is a subject",
+    )
     args = parser.parse_args()
     if not args.root.is_dir():
         parser.error(f"Study material directory not found: {args.root}")

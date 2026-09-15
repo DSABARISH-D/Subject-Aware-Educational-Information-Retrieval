@@ -435,17 +435,17 @@ def get_subject_dashboard_html(subject: SubjectModel):
             <!-- Upload and Library Section - Two Columns -->
             <div class="dashboard-grid">
                 <div class="card">
-                    <h2>📁 Upload Subject Material</h2>
-                    <p>Upload slides, notes, or textbooks for this subject</p>
+                            <h2>➕ Add Additional Study Material</h2>
+                            <p>Optional: add your own PDF to {subject.name}</p>
                     
                     <div class="upload-area" onclick="document.getElementById('fileInput').click()">
-                        <input type="file" id="fileInput" multiple accept=".pdf,.doc,.docx,.txt,.md">
-                        <p>📄 Click to upload files</p>
-                        <p>Supported formats: PDF, DOC, DOCX, TXT, MD</p>
+                        <input type="file" id="fileInput" multiple accept=".pdf">
+                        <p>📄 Choose additional PDF files</p>
+                        <p>Course materials are indexed automatically from the internal study_material folder.</p>
                     </div>
                     
                     <div id="fileList" class="file-list"></div>
-                    <button class="btn btn-primary" onclick="uploadFiles()" id="uploadButton" style="display: none;">Upload Material</button>
+                    <button class="btn btn-primary" onclick="uploadFiles()" id="uploadButton" style="display: none;">Upload &amp; Index</button>
                     
                     <div id="progressContainer" class="progress-container">
                         <h4>Processing Materials...</h4>
@@ -461,15 +461,14 @@ def get_subject_dashboard_html(subject: SubjectModel):
                 </div>
                 
                 <div class="card">
-                    <h2>📚 Subject Materials Library</h2>
-                    <p>Manage documents uploaded to {subject.name}</p>
+                    <h2>📚 Study Material Library</h2>
+                    <p>Course materials and optional student materials for {subject.name}</p>
                     
                     <button class="btn-refresh" onclick="loadDocuments()">🔄 Refresh</button>
                     
                     <div id="documentLibrary" class="document-list">
                         <div class="no-documents">
-                            <p>📂 No materials uploaded yet</p>
-                            <p>Upload materials to get started!</p>
+                            <p>📂 No study material is currently available for this subject.</p>
                         </div>
                     </div>
                 </div>
@@ -543,6 +542,7 @@ def get_subject_dashboard_html(subject: SubjectModel):
             function resetUploadButton() {{
                 document.getElementById('uploadButton').disabled = false;
                 document.getElementById('uploadButton').textContent = 'Upload Material';
+                            document.getElementById('uploadButton').textContent = 'Upload & Index';
             }}
             
             function showProgressUI(totalFiles) {{
@@ -757,28 +757,38 @@ def get_subject_dashboard_html(subject: SubjectModel):
                 if (!documents || documents.length === 0) {{
                     library.innerHTML = `
                         <div class="no-documents">
-                            <p>📂 No materials uploaded yet</p>
-                            <p>Upload materials to get started!</p>
+                            <p>📂 No study material is currently available for this subject.</p>
                         </div>
                     `;
                     return;
                 }}
                 
-                library.innerHTML = documents.map(doc => {{
+                const groupedDocuments = documents.reduce((groups, document) => {{
+                    const group = document.source_type === 'site' ? 'course' : 'student';
+                    groups[group].push(document);
+                    return groups;
+                }}, {{ course: [], student: [] }});
+
+                const renderGroup = (title, icon, groupDocuments) => `
+                    <h3>${{icon}} ${{title}}</h3>
+                    ${{groupDocuments.map(doc => {{
                     const uploadDate = new Date(doc.created_at).toLocaleDateString();
-                    
                     return `
                         <div class="document-item">
                             <div class="document-info" onclick="viewDocumentChunks('${{doc.id}}')">
                                 <div class="document-name">${{doc.name}}</div>
-                                <div class="document-meta">Uploaded on ${{uploadDate}}</div>
+                                <div class="document-meta">✓ Indexed · ${{doc.page_count}} pages · ${{doc.chunk_count}} chunks · ${{doc.source_type === 'site' ? 'Course Material' : 'Student Material'}}</div>
                             </div>
                             <div class="document-actions">
                                 <button class="btn-delete" onclick="deleteDocument('${{doc.id}}', '${{doc.name}}')">Delete</button>
                             </div>
                         </div>
                     `;
-                }}).join('');
+                }}).join('') || '<p class="no-documents">No material indexed.</p>'}}
+                `;
+
+                library.innerHTML = renderGroup('Course Materials', '📚', groupedDocuments.course)
+                    + renderGroup('Student Materials', '👤', groupedDocuments.student);
             }}
             
             function viewDocumentChunks(documentId) {{

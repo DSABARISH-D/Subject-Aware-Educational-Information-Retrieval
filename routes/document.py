@@ -110,7 +110,20 @@ def get_documents(
     subject = get_subject(db, subject_id)
     if not subject:
         raise HTTPException(status_code=404, detail="Subject not found")
-    return get_documents_by_subject(db=db, subject_id=subject_id)
+    documents = get_documents_by_subject(db=db, subject_id=subject_id)
+    response = []
+    for document in documents:
+        chunks = db.query(ChunkModel).filter(ChunkModel.document_id == document.id).all()
+        response.append({
+            "id": document.id,
+            "name": document.name,
+            "subject_id": document.subject_id,
+            "created_at": document.created_at,
+            "source_type": document.source_type,
+            "page_count": len({chunk.page_number for chunk in chunks if chunk.page_number is not None}),
+            "chunk_count": len(chunks),
+        })
+    return response
 
 
 @router.delete("/{document_id}")
@@ -328,7 +341,8 @@ async def process_single_document_async(
     
     result = ingest_file(db, content, filename, subject_id, "student", logger)
     if result is None:
-        raise ValueError(f"Document already ingested: {filename}")
+        logger.info("[SKIP] Student document already indexed: %s", filename)
+        return
     db_document = result["document"]
     chunks = [None] * result["chunks"]
     

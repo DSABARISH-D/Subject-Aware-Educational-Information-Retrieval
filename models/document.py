@@ -12,9 +12,9 @@ class Document(Base):
     id = Column(String if IS_SQLITE else UUID(as_uuid=True), primary_key=True, default=lambda: str(uuid.uuid4()) if IS_SQLITE else uuid.uuid4)
     name = Column(String, nullable=False)
     content = Column(LargeBinary, nullable=False)
-    subject_id = Column(String if IS_SQLITE else UUID(as_uuid=True), ForeignKey("subjects.id"), nullable=False)
+    subject_id = Column(String, ForeignKey("subjects.id"), nullable=False)
     content_hash = Column(String(64), nullable=True)
-    source_type = Column(String(20), nullable=False, default="student", server_default="student")
+    source_type = Column(String(20), nullable=False, default="site", server_default="site")
     created_at = Column(DateTime, default=datetime.utcnow)
     
     subject = relationship("Subject")

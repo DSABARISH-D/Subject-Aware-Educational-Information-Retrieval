@@ -11,7 +11,7 @@ from routes import (
     documents_upload_router
 )
 from config import settings
-from database import Base, engine, SessionLocal
+from database import Base, engine, SessionLocal, ensure_sqlite_schema
 from models.subject import Subject
 from utils.logging import setup_logging, get_logger, log_api_request, log_error
 import time
@@ -25,6 +25,7 @@ logger = get_logger(__name__)
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
+ensure_sqlite_schema()
 
 # Create FastAPI app
 app = FastAPI(

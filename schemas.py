@@ -27,6 +27,9 @@ class Document(DocumentBase):
     id: uuid.UUID
     subject_id: uuid.UUID
     created_at: datetime
+    source_type: str = "student"
+    page_count: int = 0
+    chunk_count: int = 0
 
     class Config:
         from_attributes = True

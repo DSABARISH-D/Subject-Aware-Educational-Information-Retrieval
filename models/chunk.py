@@ -15,7 +15,7 @@ class Chunk(Base):
     embedding = Column(JSON if IS_SQLITE else Vector(1536))
     page_number = Column(Integer, nullable=True)
     chunk_index = Column(Integer, nullable=False, default=0, server_default="0")
-    source_type = Column(String(20), nullable=False, default="student", server_default="student")
+    source_type = Column(String(20), nullable=False, default="site", server_default="site")
     
     document = relationship("Document")
     
