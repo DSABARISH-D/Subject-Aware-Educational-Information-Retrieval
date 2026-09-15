@@ -112,7 +112,9 @@ def increment_job_progress(
     if job.processed_files >= job.total_files:
         job.status = "completed"
         if job.job_metadata:
-            job.job_metadata["completed_at"] = datetime.utcnow().isoformat()
+            metadata = dict(job.job_metadata)
+            metadata["completed_at"] = datetime.utcnow().isoformat()
+            job.job_metadata = metadata
     
     db.commit()
     return True
@@ -131,17 +133,19 @@ def add_file_error(
     if not job:
         return False
     
-    if not job.job_metadata:
-        job.job_metadata = {}
+    metadata = dict(job.job_metadata) if job.job_metadata else {}
     
-    if "file_errors" not in job.job_metadata:
-        job.job_metadata["file_errors"] = []
+    if "file_errors" not in metadata:
+        metadata["file_errors"] = []
     
-    job.job_metadata["file_errors"].append({
+    file_errors = list(metadata["file_errors"])
+    file_errors.append({
         "filename": filename,
         "error": error_message,
         "timestamp": datetime.utcnow().isoformat()
     })
+    metadata["file_errors"] = file_errors
+    job.job_metadata = metadata
     
     db.commit()
     return True
