@@ -15,7 +15,7 @@ pip install --upgrade pip
 pip install -r requirements.txt
 
 echo "Installing additional Python packages for RAG..."
-pip install pgvector langchain langchain-openai
+pip install pgvector langchain google-genai
 
 # Wait for the PostgreSQL container to be ready
 echo "Waiting for PostgreSQL to become available..."

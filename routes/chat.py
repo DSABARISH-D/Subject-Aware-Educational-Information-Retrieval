@@ -1,32 +1,29 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from auth.dependencies import get_current_user
 from crud.chat_manager import get_chat_response
-from crud.project_manager import get_project
+from crud.subject_manager import get_subject
 from database import get_db
-from models.user import User
 from schemas import ChatMessage, ChatResponse
 import uuid
 
-router = APIRouter(prefix="/projects/{project_id}/chat", tags=["chat"])
+router = APIRouter(prefix="/subjects/{subject_id}/chat", tags=["chat"])
 
 
 @router.post("/", response_model=ChatResponse)
 async def chat(
-    project_id: uuid.UUID,
+    subject_id: uuid.UUID,
     message: ChatMessage,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
 ):
     """
-    Chat with a project.
+    Chat with a subject's uploaded material.
     """
-    project = get_project(db, project_id)
-    if not project or project.owner_id != current_user.id:
-        raise HTTPException(status_code=404, detail="Project not found")
+    subject = get_subject(db, subject_id)
+    if not subject:
+        raise HTTPException(status_code=404, detail="Subject not found")
 
     try:
-        response_data = get_chat_response(db=db, project_id=project_id, query=message.text)
+        response_data = get_chat_response(db=db, subject_id=subject_id, query=message.text)
         return response_data
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Chat service error: {str(e)}")

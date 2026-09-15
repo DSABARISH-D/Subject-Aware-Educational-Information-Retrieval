@@ -29,11 +29,12 @@ class Settings(BaseSettings):
     # Database URL
     database_url: str = "postgresql://postgres:password@localhost:5432/your_app_db"
     
-    # OpenAI Configuration
-    openai_api_key: Optional[str] = None
-    openai_base_url: str = "https://api.openai.com/v1"
-    embedding_model: str = "text-embedding-ada-002"
-    chat_model: str = "gpt-3.5-turbo"
+    # Gemini RAG configuration
+    gemini_api_key: Optional[str] = None
+    gemini_embedding_model: str = "gemini-embedding-001"
+    gemini_chat_model: str = "gemini-2.5-flash"
+    embedding_dimension: int = 1536
+    allow_sqlite_fallback: bool = False
     
     # Testing Configuration
     testing: bool = False

@@ -1,12 +1,18 @@
-from fastapi import FastAPI, Depends, Request
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, RedirectResponse
-from routes import auth_router, api_router, user_router, project_router, document_router, search_router, chat_router, jobs_router, documents_upload_router
-from auth import get_current_user_optional
+from fastapi.responses import HTMLResponse
+from sqlalchemy import text
+from routes import (
+    subject_router,
+    document_router,
+    search_router,
+    chat_router,
+    jobs_router,
+    documents_upload_router
+)
 from config import settings
 from database import Base, engine, SessionLocal
-# Import models to register them with Base
-from models.project import Project
+from models.subject import Subject
 from utils.logging import setup_logging, get_logger, log_api_request, log_error
 import time
 
@@ -22,8 +28,8 @@ Base.metadata.create_all(bind=engine)
 
 # Create FastAPI app
 app = FastAPI(
-    title="RAG Application",
-    description="A multi-tenant RAG application with project-based access control.",
+    title="Subject-Aware Educational Information Retrieval",
+    description="Subject-Aware Educational Search & RAG System for course materials.",
     version="1.0.0"
 )
 
@@ -36,7 +42,6 @@ async def log_requests(request: Request, call_next):
         response = await call_next(request)
         process_time = time.time() - start_time
         
-        # Log successful requests
         log_api_request(
             logger,
             method=request.method,
@@ -44,37 +49,29 @@ async def log_requests(request: Request, call_next):
             duration=process_time
         )
         
-        # Add timing header
         response.headers["X-Process-Time"] = str(process_time)
         return response
         
     except Exception as e:
         process_time = time.time() - start_time
-        
-        # Log errors
         log_error(logger, e, {
             "method": request.method,
             "endpoint": str(request.url.path),
             "duration": process_time
         })
-        
-        # Re-raise the exception
         raise
 
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure this properly for production
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # Include routers
-app.include_router(auth_router)
-app.include_router(api_router)
-app.include_router(user_router)
-app.include_router(project_router)
+app.include_router(subject_router)
 app.include_router(document_router)
 app.include_router(search_router)
 app.include_router(chat_router)
@@ -83,33 +80,18 @@ app.include_router(documents_upload_router)
 
 
 @app.get("/", response_class=HTMLResponse)
-async def root(current_user = Depends(get_current_user_optional)):
+async def root():
     """
-    Home page with a modern UI for the RAG application.
+    Home page for Subject-Aware Educational Information Retrieval.
     """
     db = SessionLocal()
-    projects = []
-    if current_user:
-        projects = db.query(Project).filter(Project.owner_id == current_user.id).all()
-    db.close()
+    subjects = []
+    try:
+        subjects = db.query(Subject).all()
+    finally:
+        db.close()
     
-    return await get_rag_home_page(current_user, projects)
-
-
-@app.get("/login")
-async def login_redirect():
-    """
-    Redirect /login to /auth/login for convenience.
-    """
-    return RedirectResponse(url="/auth/login", status_code=302)
-
-
-@app.get("/logout")
-async def logout_redirect():
-    """
-    Redirect /logout to home page (simple logout for now).
-    """
-    return RedirectResponse(url="/", status_code=302)
+    return get_home_page_html(subjects)
 
 
 @app.get("/health")
@@ -117,31 +99,23 @@ async def health_check():
     """
     Health check endpoint to verify system configuration.
     """
-    from config import settings
-    
     config_status = {
-        "oauth_configured": bool(settings.oauth_client_id and settings.oauth_client_secret and settings.oauth_domain),
-        "jwt_configured": bool(settings.jwt_secret_key),
-        "openai_configured": bool(settings.openai_api_key),
+        "gemini_configured": bool(settings.gemini_api_key),
+        "embedding_model": settings.gemini_embedding_model,
+        "embedding_dimension": settings.embedding_dimension,
         "database_configured": bool(settings.database_url),
     }
     
-    # Test database connection
     try:
         db = SessionLocal()
-        db.execute("SELECT 1")
+        db.execute(text("SELECT 1"))
         db.close()
         config_status["database_connected"] = True
     except Exception as e:
         config_status["database_connected"] = False
         config_status["database_error"] = str(e)
     
-    all_configured = all([
-        config_status["oauth_configured"],
-        config_status["jwt_configured"], 
-        config_status["openai_configured"],
-        config_status["database_connected"]
-    ])
+    all_configured = all([config_status["gemini_configured"], config_status["database_connected"]])
     
     return {
         "status": "healthy" if all_configured else "configuration_needed",
@@ -149,60 +123,28 @@ async def health_check():
     }
 
 
-async def get_rag_home_page(current_user: dict = None, projects: list = []):
+def get_home_page_html(subjects: list = []):
     """
-    Generate the home page HTML for the RAG application.
+    Generate the home page HTML for Subject-Aware Search.
     """
-    if current_user:
-        project_list_items = ""
-        if projects:
-            for project in projects:
-                project_list_items += f"<li class='project-item'><a href='/projects/{project.id}/dashboard' class='project-link'><strong>{project.name}</strong>: {project.description}</a></li>"
-        else:
-            project_list_items = "<p>No projects found. Create one below!</p>"
-
-        user_section = f"""
-        <div class="dashboard">
-            <div class="user-info">
-                <img src="{current_user.picture or ''}" alt="User" class="avatar">
-                <div>
-                    <h2>Welcome, {current_user.name or 'User'}!</h2>
-                    <p>{current_user.email or ''}</p>
-                </div>
-                <a href="/logout" class="btn btn-danger">Logout</a>
-            </div>
-
-            <div class="projects-section">
-                <h3>Your Projects</h3>
-                <ul class="project-list">
-                    {project_list_items}
-                </ul>
-            </div>
-
-            <div class="create-project-form">
-                <h3>Create a New Project</h3>
-                <form action="/projects/create" method="post">
-                    <input type="text" name="name" placeholder="Project Name" required>
-                    <input type="text" name="description" placeholder="Project Description" required>
-                    <button type="submit" class="btn btn-primary">Create Project</button>
-                </form>
-            </div>
-        </div>
-        """
+    subject_list_items = ""
+    if subjects:
+        for subject in subjects:
+            subject_list_items += f"""
+            <li class='subject-item'>
+                <a href='/subjects/{subject.id}/dashboard' class='subject-link'>
+                    <strong>📚 {subject.name}</strong>: {subject.description or 'No description'}
+                </a>
+            </li>
+            """
     else:
-        user_section = """
-        <div class="landing-page">
-            <h1>Welcome to the RAG Application</h1>
-            <p>Create knowledge bases from your documents and chat with them.</p>
-            <a href="/login" class="btn btn-primary btn-large">Get Started</a>
-        </div>
-        """
+        subject_list_items = "<p style='color: #6c757d;'>No subjects created yet. Add one below!</p>"
 
     html_content = f"""
     <!DOCTYPE html>
     <html>
     <head>
-        <title>RAG Application</title>
+        <title>Subject-Aware Educational Information Retrieval</title>
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <style>
             body {{
@@ -224,6 +166,15 @@ async def get_rag_home_page(current_user: dict = None, projects: list = []):
                 border-radius: 8px;
                 box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
             }}
+            h1 {{
+                color: #2c3e50;
+                margin-top: 0;
+            }}
+            .subtitle {{
+                color: #6c757d;
+                font-size: 16px;
+                margin-bottom: 30px;
+            }}
             .btn {{
                 padding: 10px 20px;
                 border: none;
@@ -237,65 +188,86 @@ async def get_rag_home_page(current_user: dict = None, projects: list = []):
                 background-color: #007bff;
                 color: white;
             }}
-            .btn-danger {{
-                background-color: #dc3545;
-                color: white;
-            }}
-            .btn-large {{
-                padding: 15px 30px;
-                font-size: 18px;
-            }}
-            .landing-page {{
-                text-align: center;
-            }}
-            .dashboard .user-info {{
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
+            .subjects-section, .create-subject-form {{
                 margin-bottom: 30px;
+                background: #f8f9fa;
+                padding: 20px;
+                border-radius: 8px;
+                border: 1px solid #e9ecef;
             }}
-            .dashboard .avatar {{
-                width: 50px;
-                height: 50px;
-                border-radius: 50%;
-                margin-right: 15px;
-            }}
-            .projects-section, .create-project-form {{
-                margin-bottom: 30px;
-            }}
-            .project-list {{
+            .subject-list {{
                 list-style: none;
                 padding: 0;
+                margin: 0;
             }}
-            .project-item {{
-                padding: 10px;
+            .subject-item {{
+                padding: 10px 0;
                 border-bottom: 1px solid #eeeeee;
             }}
-            .project-link {{
+            .subject-item:last-child {{
+                border-bottom: none;
+            }}
+            .subject-link {{
                 color: #007bff;
                 text-decoration: none;
                 display: block;
-                padding: 5px;
+                padding: 10px;
                 border-radius: 4px;
                 transition: background-color 0.2s;
             }}
-            .project-link:hover {{
-                background-color: #f8f9fa;
-                text-decoration: none;
+            .subject-link:hover {{
+                background-color: #e9ecef;
             }}
-            .create-project-form input[type="text"] {{
+            .create-subject-form input[type="text"] {{
                 width: 100%;
                 padding: 10px;
                 margin-bottom: 10px;
                 border: 1px solid #cccccc;
                 border-radius: 5px;
+                box-sizing: border-box;
             }}
         </style>
     </head>
     <body>
         <div class="container">
-            {user_section}
+            <h1>🎓 Subject-Aware Educational Information Retrieval</h1>
+            <div class="subtitle">
+                Select a subject to upload course materials and perform strict subject-isolated question answering.
+            </div>
+
+            <div class="subjects-section">
+                <h3>📖 Select a Subject</h3>
+                <label for="subjectDropdown">Search subject</label>
+                <select id="subjectDropdown" onchange="if (this.value) window.location.href='/subjects/' + this.value + '/dashboard'">
+                    <option value="">Choose a subject...</option>
+                    {''.join(f"<option value='{subject.id}'>{subject.name}</option>" for subject in subjects)}
+                </select>
+                <ul class="subject-list">
+                    {subject_list_items}
+                </ul>
+            </div>
+
+            <div class="create-subject-form">
+                <h3>➕ Add a New Subject</h3>
+                <form action="/subjects/create" method="post">
+                    <input type="text" name="name" placeholder="Subject Name (e.g., Operating Systems, Data Structures)" required>
+                    <input type="text" name="description" placeholder="Subject Description (e.g., Course CS301 Fall 2026)" required>
+                    <button type="submit" class="btn btn-primary">Create Subject</button>
+                </form>
+            </div>
         </div>
+        <script>
+            fetch('/subjects/')
+                .then(response => response.json())
+                .then(subjects => {{
+                    const dropdown = document.getElementById('subjectDropdown');
+                    subjects.forEach(subject => {{
+                        if (![...dropdown.options].some(option => option.value === subject.id)) {{
+                            dropdown.add(new Option(subject.name, subject.id));
+                        }}
+                    }});
+                }});
+        </script>
     </body>
     </html>
     """

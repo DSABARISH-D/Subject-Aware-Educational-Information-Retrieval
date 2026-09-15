@@ -6,13 +6,12 @@ from datetime import datetime
 
 def create_ingestion_job(
     db: Session,
-    project_id: str,
-    user_id: str,
+    subject_id: str,
     total_files: int,
     file_metadata: List[Dict[str, Any]] = None
 ) -> IngestionJob:
     """
-    Create a new ingestion job.
+    Create a new ingestion job for a subject.
     """
     job_metadata = {
         "files": file_metadata or [],
@@ -20,8 +19,7 @@ def create_ingestion_job(
     }
     
     job = IngestionJob(
-        project_id=project_id,
-        user_id=user_id,
+        subject_id=subject_id,
         total_files=total_files,
         job_metadata=job_metadata
     )
@@ -39,26 +37,13 @@ def get_ingestion_job(db: Session, job_id: str) -> Optional[IngestionJob]:
     return db.query(IngestionJob).filter(IngestionJob.id == job_id).first()
 
 
-def get_jobs_by_user(db: Session, user_id: str, limit: int = 10) -> List[IngestionJob]:
+def get_jobs_by_subject(db: Session, subject_id: str, limit: int = 10) -> List[IngestionJob]:
     """
-    Get recent ingestion jobs for a user.
-    """
-    return (
-        db.query(IngestionJob)
-        .filter(IngestionJob.user_id == user_id)
-        .order_by(IngestionJob.created_at.desc())
-        .limit(limit)
-        .all()
-    )
-
-
-def get_jobs_by_project(db: Session, project_id: str, limit: int = 10) -> List[IngestionJob]:
-    """
-    Get recent ingestion jobs for a project.
+    Get recent ingestion jobs for a subject.
     """
     return (
         db.query(IngestionJob)
-        .filter(IngestionJob.project_id == project_id)
+        .filter(IngestionJob.subject_id == subject_id)
         .order_by(IngestionJob.created_at.desc())
         .limit(limit)
         .all()

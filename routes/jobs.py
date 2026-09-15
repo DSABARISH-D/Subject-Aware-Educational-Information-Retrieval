@@ -1,9 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from auth.dependencies import get_current_user
-from crud.ingestion_manager import get_ingestion_job, get_jobs_by_user
+from crud.ingestion_manager import get_ingestion_job, get_jobs_by_subject
 from database import get_db
-from models.user import User
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
@@ -12,7 +10,6 @@ router = APIRouter(prefix="/jobs", tags=["jobs"])
 async def get_job_status(
     job_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
 ):
     """
     Get the status of an ingestion job.
@@ -20,10 +17,6 @@ async def get_job_status(
     job = get_ingestion_job(db, job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
-    
-    # Verify user has access to this job
-    if job.user_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Access denied")
     
     return {
         "job_id": str(job.id),
@@ -42,21 +35,21 @@ async def get_job_status(
     }
 
 
-@router.get("/")
-async def get_user_jobs(
+@router.get("/subject/{subject_id}")
+async def get_subject_jobs(
+    subject_id: str,
     limit: int = 10,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
 ):
     """
-    Get recent ingestion jobs for the current user.
+    Get recent ingestion jobs for a subject.
     """
-    jobs = get_jobs_by_user(db, str(current_user.id), limit)
+    jobs = get_jobs_by_subject(db, subject_id, limit)
     
     return [
         {
             "job_id": str(job.id),
-            "project_id": str(job.project_id),
+            "subject_id": str(job.subject_id),
             "status": job.status,
             "total_files": job.total_files,
             "processed_files": job.processed_files,
